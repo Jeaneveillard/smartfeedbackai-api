@@ -9,5 +9,10 @@ if (missing.length) {
 }
 
 const app  = require('./app');
+const { startCron } = require('./cron/syncReviews');
 const port = process.env.PORT || 3001;
 app.listen(port, () => console.log(`API running on port ${port}`));
+
+if (process.env.NODE_ENV === 'production') {
+  startCron();
+}
