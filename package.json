@@ -2,17 +2,19 @@
   "name": "smartfeedbackai-api",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
-    "start":        "node src/server.js",
-    "dev":          "node --watch src/server.js",
-    "test":         "NODE_ENV=test jest --runInBand",
-    "migrate":      "knex migrate:latest --knexfile src/db/knexfile.js",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "cross-env NODE_ENV=test jest --runInBand",
+    "migrate": "knex migrate:latest --knexfile src/db/knexfile.js",
     "migrate:test": "NODE_ENV=test knex migrate:latest --knexfile src/db/knexfile.js"
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"]
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -31,6 +33,7 @@
     "pg": "^8.21.0"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "jest": "^30.4.2",
     "supertest": "^7.2.2"
   }

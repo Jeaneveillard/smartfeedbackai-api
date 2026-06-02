@@ -3,7 +3,6 @@ const express  = require('express');
 const cors     = require('cors');
 const helmet   = require('helmet');
 const passport = require('passport');
-require('dotenv').config();
 
 const app = express();
 
@@ -21,5 +20,12 @@ app.use('/api/settings',  require('./middleware/requireAuth'), require('./routes
 app.use('/api/analytics', require('./middleware/requireAuth'), require('./routes/analytics'));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// Global error handler
+app.use((err, _req, res, _next) => {
+  console.error(err.stack);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || 'Erreur serveur' });
+});
 
 module.exports = app;
