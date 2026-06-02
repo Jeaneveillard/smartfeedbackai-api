@@ -78,3 +78,26 @@ describe('POST /api/reviews/:id/reply', () => {
     expect(res.status).toBe(501);
   });
 });
+
+describe('GET /api/settings', () => {
+  it('returns tenant settings with defaults', async () => {
+    const res = await request(app).get('/api/settings').set('Authorization', 'Bearer ' + token);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('business');
+    expect(res.body).toHaveProperty('ai');
+    expect(res.body).toHaveProperty('billing');
+  });
+});
+
+describe('PUT /api/settings', () => {
+  it('merges and persists settings', async () => {
+    const res = await request(app)
+      .put('/api/settings')
+      .set('Authorization', 'Bearer ' + token)
+      .send({ business: { name: 'Updated Name' } });
+    expect(res.status).toBe(200);
+    expect(res.body.business.name).toBe('Updated Name');
+    const res2 = await request(app).get('/api/settings').set('Authorization', 'Bearer ' + token);
+    expect(res2.body.business.name).toBe('Updated Name');
+  });
+});
