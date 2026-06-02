@@ -3,6 +3,7 @@ const express  = require('express');
 const cors     = require('cors');
 const helmet   = require('helmet');
 const passport = require('passport');
+require('./auth/googleOAuth');
 
 const app = express();
 
