@@ -11,7 +11,20 @@ module.exports = async function requireAuth(req, res, next) {
     const payload = jwt.verify(token);
     const tenant  = await db('tenants').where({ id: payload.tenantId }).first();
     if (!tenant) return res.status(401).json({ error: 'Tenant introuvable' });
-    if (tenant.active === false) return res.status(403).json({ error: 'Compte désactivé.' });
+    if (tenant.active === false) return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
+
+    // Check subscription expiry
+    if (tenant.subscription_end) {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      if (tenant.subscription_end < today) {
+        return res.status(402).json({
+          error: 'Abonnement expiré le ' + tenant.subscription_end + '. Contactez SmartFeedback AI pour renouveler.',
+          expired: true,
+          expiredOn: tenant.subscription_end
+        });
+      }
+    }
+
     req.tenant = tenant;
     next();
   } catch {

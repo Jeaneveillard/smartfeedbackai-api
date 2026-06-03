@@ -158,4 +158,4 @@ async function testConnection() {
   }
 }
 
-module.exports = { sendNewReviewsNotification, testConnection };
+module.exports = { sendNewReviewsNotification, testConnection, getTransporter };
