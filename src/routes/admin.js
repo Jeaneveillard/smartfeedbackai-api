@@ -74,6 +74,47 @@ router.post('/tenants', requireAdmin, async (req, res) => {
   });
 });
 
+/* ─── PUT /admin/tenants/:id ─── activate / deactivate (frontend uses PUT) ─── */
+router.put('/tenants/:id', requireAdmin, async (req, res) => {
+  const { active, plan } = req.body;
+  const updates = {};
+  if (typeof active === 'boolean') updates.active = active;
+  if (plan) updates.plan = plan;
+  if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'Aucune modification.' });
+  await db('tenants').where({ id: req.params.id }).update(updates);
+  const updated = await db('tenants').where({ id: req.params.id }).select('id','name','email','active','plan').first();
+  res.json(updated);
+});
+
+/* ─── POST /admin/subscriptions/:id/extend ─── add days to subscription ─── */
+router.post('/subscriptions/:id/extend', requireAdmin, async (req, res) => {
+  const days = parseInt(req.body.days, 10) || 30;
+  const t    = await db('tenants').where({ id: req.params.id }).first();
+  if (!t) return res.status(404).json({ error: 'Tenant introuvable' });
+
+  function addDays(dateStr, n) {
+    var d = new Date(dateStr);
+    d.setDate(d.getDate() + n);
+    return d.toISOString().split('T')[0];
+  }
+  const todayStr = new Date().toISOString().split('T')[0];
+  const startDate = t.subscription_start || todayStr;
+  const currentEnd = t.subscription_end
+    ? new Date(t.subscription_end).toISOString().split('T')[0]
+    : todayStr;
+  const newEnd = addDays(currentEnd < todayStr ? todayStr : currentEnd, days);
+
+  await db('tenants').where({ id: req.params.id }).update({
+    subscription_start: startDate,
+    subscription_end:   newEnd,
+    warning_sent:       false,
+    active:             true
+  });
+  const updated = await db('tenants').where({ id: req.params.id })
+    .select('id','name','email','active','subscription_start','subscription_end').first();
+  res.json(updated);
+});
+
 /* ─── PATCH /admin/tenants/:id ─── activate / deactivate ─────────────────── */
 router.patch('/tenants/:id', requireAdmin, async (req, res) => {
   const { active, plan } = req.body;

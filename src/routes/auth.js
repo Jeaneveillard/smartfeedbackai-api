@@ -21,14 +21,14 @@ router.get('/google/callback',
     failureRedirect: (process.env.FRONTEND_URL || 'http://localhost:3000') + '/?error=auth_failed'
   }),
   (req, res) => {
-    const token = jwt.sign({ tenantId: req.user.id, email: req.user.email });
+    const token = jwt.sign({ tenantId: req.user.id, email: req.user.email, isAdmin: !!req.user.is_admin });
     res.redirect((process.env.FRONTEND_URL || 'http://localhost:3000') + '/?token=' + token);
   }
 );
 
 router.get('/me', requireAuth, (req, res) => {
-  const { id, name, email, google_location_id, last_sync_at } = req.tenant;
-  res.json({ id, name, email, googleConnected: !!req.tenant.google_access_token, google_location_id, last_sync_at });
+  const { id, name, email, google_location_id, last_sync_at, is_admin } = req.tenant;
+  res.json({ id, name, email, isAdmin: !!is_admin, googleConnected: !!req.tenant.google_access_token, google_location_id, last_sync_at });
 });
 
 router.delete('/logout', (_req, res) => res.json({ success: true }));
