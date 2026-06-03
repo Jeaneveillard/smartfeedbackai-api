@@ -113,4 +113,48 @@ router.post('/login', async (req, res) => {
   res.json({ token, name: tenant.name, username: tenant.username || tenant.name });
 });
 
+/* ─── GET /auth/invite/:token — validate invite link ────────────────────── */
+router.get('/invite/:token', async (req, res) => {
+  const tenant = await db('tenants').where({ invite_token: req.params.token }).first();
+  if (!tenant) return res.status(404).json({ error: 'Lien d\'invitation invalide ou déjà utilisé.' });
+  if (new Date(tenant.invite_expires_at) < new Date()) {
+    return res.status(410).json({ error: 'Ce lien d\'invitation a expiré. Contactez l\'administrateur.' });
+  }
+  res.json({ valid: true, name: tenant.name, username: tenant.username });
+});
+
+/* ─── POST /auth/invite/:token — set password + activate account ─────────── */
+router.post('/invite/:token', async (req, res) => {
+  const { password } = req.body;
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères.' });
+  }
+  // Require at least: 1 uppercase, 1 lowercase, 1 digit
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 1 majuscule, 1 minuscule et 1 chiffre.' });
+  }
+
+  const tenant = await db('tenants').where({ invite_token: req.params.token }).first();
+  if (!tenant) return res.status(404).json({ error: 'Lien d\'invitation invalide ou déjà utilisé.' });
+  if (new Date(tenant.invite_expires_at) < new Date()) {
+    return res.status(410).json({ error: 'Ce lien d\'invitation a expiré. Contactez l\'administrateur.' });
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+  await db('tenants').where({ id: tenant.id }).update({
+    password_hash:      hash,
+    active:             true,
+    invite_token:       null,  // invalidate — one-time use
+    invite_expires_at:  null
+  });
+
+  // Auto-login: sign a JWT
+  const token = jwt.sign({
+    tenantId: tenant.id,
+    email:    tenant.email,
+    isAdmin:  tenant.is_admin || false
+  });
+  res.json({ token, name: tenant.name, username: tenant.username || tenant.name });
+});
+
 module.exports = router;

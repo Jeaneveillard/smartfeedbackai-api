@@ -57,25 +57,29 @@ router.post('/tenants', requireAdmin, async (req, res) => {
   const existingUser = await db('tenants').where({ username }).first();
   if (existingUser) return res.status(409).json({ error: 'Ce username est déjà pris.' });
 
-  const plainPassword = generatePassword(12);
-  const passwordHash  = await bcrypt.hash(plainPassword, 10);
+  // Generate a secure invite token (valid 7 days)
+  const inviteToken   = crypto.randomBytes(32).toString('hex');
+  const inviteExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   const [tenant] = await db('tenants').insert({
     name,
     email,
     username,
-    password_hash: passwordHash,
     plan,
-    active: true
+    active: false, // inactive until client sets their password
+    invite_token:      inviteToken,
+    invite_expires_at: inviteExpires
   }).returning(['id', 'name', 'username', 'email', 'plan', 'active', 'created_at']);
+
+  const inviteUrl = (process.env.FRONTEND_URL || 'http://localhost:3000') + '?invite=' + inviteToken;
 
   res.status(201).json({
     tenant,
-    credentials: {
-      email,
-      username,
-      password: plainPassword,
-      note: 'Partagez ces identifiants avec le client. Le mot de passe ne sera plus affiché.'
+    invite: {
+      url:     inviteUrl,
+      token:   inviteToken,
+      expires: inviteExpires,
+      note:    'Envoyez ce lien au client. Il expirera dans 7 jours et sera invalide après la première utilisation.'
     }
   });
 });

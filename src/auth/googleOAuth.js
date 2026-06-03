@@ -15,9 +15,20 @@ if (process.env.GOOGLE_CLIENT_ID) {
     const name  = profile.displayName;
     try {
       let tenant = await db('tenants').where({ email }).first();
+
       if (!tenant) {
-        [tenant] = await db('tenants').insert({ name, email }).returning('*');
+        // New user — create account automatically
+        [tenant] = await db('tenants').insert({ name, email, active: true }).returning('*');
+      } else if (!tenant.active && tenant.invite_token) {
+        // Client had an invitation pending — activate via Google login
+        await db('tenants').where({ id: tenant.id }).update({
+          active:            true,
+          invite_token:      null,
+          invite_expires_at: null
+        });
       }
+
+      // Store Google tokens
       await db('tenants').where({ id: tenant.id }).update({
         google_access_token:  _accessToken,
         google_refresh_token: refreshToken || tenant.google_refresh_token
