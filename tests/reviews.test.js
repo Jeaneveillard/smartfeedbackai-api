@@ -69,13 +69,14 @@ describe('POST /api/reviews/:id/reply', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 501 when Google is not yet connected', async () => {
+  it('saves locally when Google is not connected', async () => {
     const [review] = await db('reviews').where({ tenant_id: tenant.id }).limit(1);
     const res = await request(app)
       .post('/api/reviews/' + review.id + '/reply')
       .set('Authorization', 'Bearer ' + token)
       .send({ text: 'Merci !' });
-    expect(res.status).toBe(501);
+    expect(res.status).toBe(200);
+    expect(res.body.googlePosted).toBe(false);
   });
 });
 

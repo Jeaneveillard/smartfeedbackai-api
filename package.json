@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "cross-env NODE_ENV=test jest --runInBand",
+    "test": "cross-env NODE_ENV=test jest --runInBand --forceExit",
     "migrate": "knex migrate:latest --knexfile src/db/knexfile.js",
-    "migrate:test": "NODE_ENV=test knex migrate:latest --knexfile src/db/knexfile.js"
+    "migrate:test": "cross-env NODE_ENV=test knex migrate:latest --knexfile src/db/knexfile.js"
   },
   "jest": {
     "testEnvironment": "node",
@@ -24,10 +24,12 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "googleapis": "^173.0.0",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "knex": "^3.2.10",
     "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.10",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.21.0"

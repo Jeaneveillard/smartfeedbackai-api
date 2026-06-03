@@ -8,6 +8,7 @@ jest.mock('../src/services/googleApi');
 
 let tenant;
 beforeEach(async () => {
+  jest.clearAllMocks();
   await cleanDb();
   tenant = await createTenant({ email: 'sync@test.com' });
   await db('tenants').where({ id: tenant.id }).update({

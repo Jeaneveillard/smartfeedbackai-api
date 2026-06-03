@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
       });
     }
 
-    const countResult = await query.clone().count('id as count').first();
+    const countResult = await query.clone().clearOrder().count('id as count').first();
     const count       = countResult ? countResult.count : 0;
     const offset      = (parseInt(page, 10) - 1) * parseInt(pageSize, 10);
     const reviews     = await query.limit(parseInt(pageSize, 10)).offset(offset);

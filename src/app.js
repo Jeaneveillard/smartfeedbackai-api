@@ -19,6 +19,7 @@ app.use('/auth', require('./routes/auth'));
 app.use('/api/reviews',   require('./middleware/requireAuth'), require('./routes/reviews'));
 app.use('/api/settings',  require('./middleware/requireAuth'), require('./routes/settings'));
 app.use('/api/analytics', require('./middleware/requireAuth'), require('./routes/analytics'));
+app.use('/api/email',     require('./middleware/requireAuth'), require('./routes/email'));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
