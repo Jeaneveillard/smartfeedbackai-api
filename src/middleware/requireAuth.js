@@ -11,6 +11,7 @@ module.exports = async function requireAuth(req, res, next) {
     const payload = jwt.verify(token);
     const tenant  = await db('tenants').where({ id: payload.tenantId }).first();
     if (!tenant) return res.status(401).json({ error: 'Tenant introuvable' });
+    if (tenant.active === false) return res.status(403).json({ error: 'Compte désactivé.' });
     req.tenant = tenant;
     next();
   } catch {

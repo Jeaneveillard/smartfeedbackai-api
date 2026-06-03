@@ -44,6 +44,7 @@ app.use('/api/reviews',   require('./middleware/requireAuth'), require('./routes
 app.use('/api/settings',  require('./middleware/requireAuth'), require('./routes/settings'));
 app.use('/api/analytics', require('./middleware/requireAuth'), require('./routes/analytics'));
 app.use('/api/email',     require('./middleware/requireAuth'), require('./routes/email'));
+app.use('/admin',         require('./routes/admin').router);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

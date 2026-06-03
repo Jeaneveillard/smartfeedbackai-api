@@ -3,6 +3,7 @@ const router      = require('express').Router();
 const passport    = require('../auth/googleOAuth');
 const jwt         = require('../auth/jwt');
 const db          = require('../db');
+const bcrypt      = require('bcryptjs');
 const requireAuth = require('../middleware/requireAuth');
 require('dotenv').config();
 
@@ -76,6 +77,36 @@ router.post('/setup/location', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/* ─── POST /auth/login — email + password ─────────────────────────────── */
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email et mot de passe requis.' });
+  }
+
+  const tenant = await db('tenants').where({ email: email.toLowerCase().trim() }).first();
+
+  if (!tenant || !tenant.password_hash) {
+    return res.status(401).json({ error: 'Identifiants incorrects.' });
+  }
+
+  if (!tenant.active) {
+    return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
+  }
+
+  const valid = await bcrypt.compare(password, tenant.password_hash);
+  if (!valid) {
+    return res.status(401).json({ error: 'Identifiants incorrects.' });
+  }
+
+  const token = jwt.sign({
+    tenantId: tenant.id,
+    email:    tenant.email,
+    isAdmin:  tenant.is_admin || false
+  });
+  res.json({ token, name: tenant.name, email: tenant.email });
 });
 
 module.exports = router;
