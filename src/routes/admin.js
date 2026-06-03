@@ -37,7 +37,8 @@ function generatePassword(length) {
 router.get('/tenants', requireAdmin, async (_req, res) => {
   try {
     const tenants = await db('tenants')
-      .select('id', 'name', 'email', 'active', 'plan', 'is_admin', 'created_at', 'last_sync_at')
+      .where('is_admin', false)
+      .select('id', 'name', 'username', 'email', 'active', 'plan', 'subscription_start', 'subscription_end', 'warning_sent', 'created_at', 'last_sync_at')
       .orderBy('created_at', 'desc');
     res.json(tenants);
   } catch (err) {
@@ -47,11 +48,14 @@ router.get('/tenants', requireAdmin, async (_req, res) => {
 
 /* ─── POST /admin/tenants ─── create a new client account ────────────────── */
 router.post('/tenants', requireAdmin, async (req, res) => {
-  const { name, email, plan = 'beta' } = req.body;
-  if (!name || !email) return res.status(400).json({ error: 'name et email requis.' });
+  const { name, email, username, plan = 'beta' } = req.body;
+  if (!name || !email || !username) return res.status(400).json({ error: 'name, email et username requis.' });
 
   const existing = await db('tenants').where({ email }).first();
   if (existing) return res.status(409).json({ error: 'Un compte existe déjà pour cet email.' });
+
+  const existingUser = await db('tenants').where({ username }).first();
+  if (existingUser) return res.status(409).json({ error: 'Ce username est déjà pris.' });
 
   const plainPassword = generatePassword(12);
   const passwordHash  = await bcrypt.hash(plainPassword, 10);
@@ -59,15 +63,17 @@ router.post('/tenants', requireAdmin, async (req, res) => {
   const [tenant] = await db('tenants').insert({
     name,
     email,
+    username,
     password_hash: passwordHash,
     plan,
     active: true
-  }).returning(['id', 'name', 'email', 'plan', 'active', 'created_at']);
+  }).returning(['id', 'name', 'username', 'email', 'plan', 'active', 'created_at']);
 
   res.status(201).json({
     tenant,
     credentials: {
       email,
+      username,
       password: plainPassword,
       note: 'Partagez ces identifiants avec le client. Le mot de passe ne sera plus affiché.'
     }
@@ -145,9 +151,9 @@ router.post('/tenants/:id/reset-password', requireAdmin, async (req, res) => {
   const plainPassword = generatePassword(12);
   const passwordHash  = await bcrypt.hash(plainPassword, 10);
   await db('tenants').where({ id: req.params.id }).update({ password_hash: passwordHash });
-  const tenant = await db('tenants').where({ id: req.params.id }).select('email').first();
+  const tenant = await db('tenants').where({ id: req.params.id }).select('email', 'username').first();
   res.json({
-    credentials: { email: tenant.email, password: plainPassword }
+    credentials: { email: tenant.email, username: tenant.username, password: plainPassword }
   });
 });
 

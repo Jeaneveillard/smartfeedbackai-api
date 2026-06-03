@@ -43,25 +43,26 @@ async function run() {
   switch (cmd) {
 
     case 'create': {
-      const [name, email] = args;
-      if (!name || !email) {
-        console.error('Usage: node scripts/client.js create "Nom" "email@client.com"');
+      const [name, username, email] = args;
+      if (!name || !username || !email) {
+        console.error('Usage: node scripts/client.js create "Nom" "username" "email@client.com"');
         process.exit(1);
       }
       const existing = await db('tenants').where({ email }).first();
-      if (existing) {
-        console.error(`❌  Un compte existe déjà pour ${email}`);
-        process.exit(1);
-      }
+      if (existing) { console.error(`❌  Un compte existe déjà pour ${email}`); process.exit(1); }
+      const existingU = await db('tenants').where({ username }).first();
+      if (existingU) { console.error(`❌  Le username "${username}" est déjà pris.`); process.exit(1); }
+
       const password = genPass(12);
       const hash     = await bcrypt.hash(password, 10);
-      const [t] = await db('tenants').insert({ name, email, password_hash: hash, plan: 'beta', active: true }).returning(['id','name','email','plan']);
+      const [t] = await db('tenants').insert({ name, username, email, password_hash: hash, plan: 'beta', active: true }).returning(['id','name','username','plan']);
       console.log('\n✅  Compte créé avec succès !\n');
       console.log('  Établissement :', t.name);
-      console.log('  Email         :', t.email);
+      console.log('  Username      :', t.username, '  ← à partager avec le client');
       console.log('  Mot de passe  :', password);
       console.log('  Plan          :', t.plan);
-      console.log('\n  ⚠️  Partagez ces identifiants avec le client. Le mot de passe ne sera plus affiché.\n');
+      console.log('\n  ℹ️  Le client se connecte avec son username ou son email.');
+      console.log('  ⚠️  Partagez ce mot de passe maintenant — il ne sera plus affiché.\n');
       break;
     }
 

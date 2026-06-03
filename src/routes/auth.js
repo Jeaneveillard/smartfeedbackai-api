@@ -27,8 +27,9 @@ router.get('/google/callback',
 );
 
 router.get('/me', requireAuth, (req, res) => {
-  const { id, name, email, google_location_id, last_sync_at, is_admin } = req.tenant;
-  res.json({ id, name, email, isAdmin: !!is_admin, googleConnected: !!req.tenant.google_access_token, google_location_id, last_sync_at });
+  const { id, name, username, google_location_id, last_sync_at, is_admin } = req.tenant;
+  // NOTE: email is intentionally NOT returned to the frontend
+  res.json({ id, name, username: username || name, isAdmin: !!is_admin, googleConnected: !!req.tenant.google_access_token, google_location_id, last_sync_at });
 });
 
 router.delete('/logout', (_req, res) => res.json({ success: true }));
@@ -86,12 +87,14 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Email et mot de passe requis.' });
   }
 
-  const tenant = await db('tenants').where({ email: email.toLowerCase().trim() }).first();
+  // Accept email OR username
+  const input = email.toLowerCase().trim();
+  let tenant = await db('tenants').where({ email: input }).first();
+  if (!tenant) tenant = await db('tenants').where({ username: email.trim() }).first();
 
   if (!tenant || !tenant.password_hash) {
     return res.status(401).json({ error: 'Identifiants incorrects.' });
   }
-
   if (!tenant.active) {
     return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
   }
@@ -106,7 +109,8 @@ router.post('/login', async (req, res) => {
     email:    tenant.email,
     isAdmin:  tenant.is_admin || false
   });
-  res.json({ token, name: tenant.name, email: tenant.email });
+  // Return username, not email — email stays server-side only
+  res.json({ token, name: tenant.name, username: tenant.username || tenant.name });
 });
 
 module.exports = router;
