@@ -108,7 +108,26 @@ router.get('/tenants', requireAdmin, async (_req, res) => {
       .where('is_admin', false)
       .select('id', 'name', 'username', 'email', 'active', 'plan', 'subscription_start', 'subscription_end', 'warning_sent', 'created_at', 'last_sync_at')
       .orderBy('created_at', 'desc');
-    res.json(tenants);
+
+    // Attach review counts per tenant
+    const ids = tenants.map(t => t.id);
+    let counts = [];
+    if (ids.length) {
+      counts = await db('reviews')
+        .whereIn('tenant_id', ids)
+        .select('tenant_id')
+        .count('id as total')
+        .countDistinct(db.raw('CASE WHEN status IN (\'pending\',\'new\') THEN id END as pending'))
+        .groupBy('tenant_id');
+    }
+    const countMap = {};
+    counts.forEach(function(c) {
+      countMap[c.tenant_id] = { total: parseInt(c.total, 10), pending: parseInt(c.pending, 10) || 0 };
+    });
+    const result = tenants.map(function(t) {
+      return Object.assign({}, t, countMap[t.id] || { total: 0, pending: 0 });
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
