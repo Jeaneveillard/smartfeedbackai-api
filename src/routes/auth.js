@@ -93,10 +93,10 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Identifiants incorrects.' });
   }
 
-  // Accept email OR username
+  // Accept email OR username (case-insensitive)
   const input = email.toLowerCase().trim();
   let tenant = await db('tenants').where({ email: input }).first();
-  if (!tenant) tenant = await db('tenants').where({ username: email.trim() }).first();
+  if (!tenant) tenant = await db('tenants').whereRaw('LOWER(username) = ?', [input]).first();
 
   // Always run bcrypt to prevent timing attacks that reveal whether an email exists
   const hashToCheck = (tenant && tenant.password_hash) || '$2a$10$invalidhashpaddingtopreventimenumerrtiming00000000000000';
