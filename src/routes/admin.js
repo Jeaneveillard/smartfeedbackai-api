@@ -1,9 +1,10 @@
 'use strict';
-const router  = require('express').Router();
-const bcrypt  = require('bcryptjs');
-const crypto  = require('crypto');
-const db      = require('../db');
-const jwt     = require('../auth/jwt');
+const router       = require('express').Router();
+const bcrypt       = require('bcryptjs');
+const crypto       = require('crypto');
+const db           = require('../db');
+const jwt          = require('../auth/jwt');
+const emailService = require('../services/emailService');
 
 /* ─── Admin middleware ───────────────────────────────────────────────────── */
 function requireAdmin(req, res, next) {
@@ -24,6 +25,73 @@ function requireAdmin(req, res, next) {
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
+async function sendInviteEmail(email, name, username, inviteUrl, expires) {
+  const transporter = emailService.getTransporter();
+  if (!transporter) throw new Error('SMTP not configured');
+
+  const expiresStr = new Date(expires).toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const html = [
+    '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">',
+    '<meta name="viewport" content="width=device-width,initial-scale=1">',
+    '<title>Invitation SmartFeedback AI</title></head>',
+    '<body style="margin:0;padding:0;background:#F4F5F9;font-family:Inter,-apple-system,sans-serif;">',
+    '<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F5F9;padding:32px 0;">',
+    '  <tr><td align="center">',
+    '    <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.08);">',
+    // Header
+    '      <tr><td style="background:linear-gradient(135deg,#4F46E5,#7C3AED);padding:28px 32px;text-align:center;">',
+    '        <div style="width:48px;height:48px;background:rgba(255,255,255,.2);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">',
+    '          <span style="color:#fff;font-size:22px;">★</span>',
+    '        </div>',
+    '        <div style="color:#fff;font-size:20px;font-weight:800;letter-spacing:-.4px;">SmartFeedback AI</div>',
+    '        <div style="color:rgba(255,255,255,.75);font-size:13px;margin-top:4px;">Plateforme de gestion d\'avis clients</div>',
+    '      </td></tr>',
+    // Body
+    '      <tr><td style="padding:32px;">',
+    '        <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;">Bienvenue, ' + name + ' !</h1>',
+    '        <p style="margin:0 0 20px;font-size:14px;color:#6B7280;line-height:1.6;">',
+    '          Votre compte SmartFeedback AI a été créé. Cliquez le bouton ci-dessous pour choisir votre mot de passe et accéder à votre tableau de bord.',
+    '        </p>',
+    '        <div style="background:#F9FAFB;border-radius:8px;padding:14px 16px;margin-bottom:24px;">',
+    '          <div style="font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Votre identifiant</div>',
+    '          <div style="font-size:16px;font-weight:700;color:#4F46E5;">@' + username + '</div>',
+    '        </div>',
+    '        <a href="' + inviteUrl + '"',
+    '           style="display:block;text-align:center;background:#4F46E5;color:#fff;font-size:15px;font-weight:700;',
+    '                  padding:14px 24px;border-radius:9px;text-decoration:none;letter-spacing:-.2px;margin-bottom:20px;">',
+    '          Créer mon mot de passe →',
+    '        </a>',
+    '        <p style="margin:0 0 6px;font-size:12px;color:#9CA3AF;text-align:center;">',
+    '          Ou copiez ce lien dans votre navigateur :',
+    '        </p>',
+    '        <p style="margin:0 0 20px;font-size:11px;color:#6B7280;text-align:center;word-break:break-all;">',
+    '          ' + inviteUrl,
+    '        </p>',
+    '        <div style="background:#FEF3C7;border-radius:8px;padding:12px 14px;font-size:12.5px;color:#92400E;">',
+    '          ⏰ Ce lien expire le <strong>' + expiresStr + '</strong> et ne peut être utilisé qu\'une seule fois.',
+    '        </div>',
+    '      </td></tr>',
+    // Footer
+    '      <tr><td style="background:#F9FAFB;border-top:1px solid #E5E7EB;padding:16px 32px;text-align:center;">',
+    '        <p style="margin:0;font-size:11px;color:#9CA3AF;">',
+    '          Si vous n\'attendiez pas cet email, ignorez-le simplement.<br>',
+    '          SmartFeedback AI · Gestion des avis clients',
+    '        </p>',
+    '      </td></tr>',
+    '    </table>',
+    '  </td></tr>',
+    '</table></body></html>'
+  ].join('\n');
+
+  await transporter.sendMail({
+    from:    '"SmartFeedback AI" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+    to:      email,
+    subject: '🎉 Votre accès SmartFeedback AI — ' + name,
+    html:    html
+  });
+}
+
 function generatePassword(length) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#!';
   let pass = '';
@@ -73,13 +141,28 @@ router.post('/tenants', requireAdmin, async (req, res) => {
 
   const inviteUrl = (process.env.FRONTEND_URL || 'http://localhost:3000') + '?invite=' + inviteToken;
 
+  // Send invitation email automatically
+  var emailSent = false;
+  var emailError = null;
+  try {
+    await sendInviteEmail(email, name, username, inviteUrl, inviteExpires);
+    emailSent = true;
+  } catch (err) {
+    emailError = err.message;
+    console.error('[admin] Failed to send invite email to', email, ':', err.message);
+  }
+
   res.status(201).json({
     tenant,
     invite: {
-      url:     inviteUrl,
-      token:   inviteToken,
-      expires: inviteExpires,
-      note:    'Envoyez ce lien au client. Il expirera dans 7 jours et sera invalide après la première utilisation.'
+      url:       inviteUrl,
+      token:     inviteToken,
+      expires:   inviteExpires,
+      emailSent: emailSent,
+      emailError: emailError || undefined,
+      note:      emailSent
+        ? 'Email d\'invitation envoyé à ' + email + '. Le lien expire dans 7 jours.'
+        : 'Email non envoyé (SMTP non configuré). Partagez ce lien manuellement.'
     }
   });
 });
