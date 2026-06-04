@@ -238,9 +238,35 @@ router.post('/tenants/:id/reset-password', requireAdmin, async (req, res) => {
   const plainPassword = generatePassword(12);
   const passwordHash  = await bcrypt.hash(plainPassword, 10);
   await db('tenants').where({ id: req.params.id }).update({ password_hash: passwordHash });
-  const tenant = await db('tenants').where({ id: req.params.id }).select('email', 'username').first();
+  const tenant = await db('tenants').where({ id: req.params.id }).select('email', 'username', 'name').first();
+
+  // Try to send the new password by email
+  var emailSent = false;
+  try {
+    const transporter = emailService.getTransporter();
+    if (transporter) {
+      await transporter.sendMail({
+        from:    '"SmartFeedback AI" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+        to:      tenant.email,
+        subject: '🔑 Votre nouveau mot de passe SmartFeedback AI',
+        html:    '<p>Bonjour ' + tenant.name + ',</p>' +
+                 '<p>Votre mot de passe a été réinitialisé.</p>' +
+                 '<p><strong>Nouveau mot de passe :</strong> <code>' + plainPassword + '</code></p>' +
+                 '<p>Connectez-vous sur <a href="' + (process.env.FRONTEND_URL || 'http://localhost:3000') + '">' +
+                 (process.env.FRONTEND_URL || 'http://localhost:3000') + '</a> et changez votre mot de passe.</p>'
+      });
+      emailSent = true;
+    }
+  } catch (err) {
+    console.error('[reset-password] email error:', err.message);
+  }
+
   res.json({
-    credentials: { email: tenant.email, username: tenant.username, password: plainPassword }
+    success: true,
+    emailSent,
+    username: tenant.username,
+    // Only return plaintext if email failed — admin needs it as fallback
+    ...(emailSent ? {} : { tempPassword: plainPassword })
   });
 });
 

@@ -29,7 +29,16 @@ app.use(rateLimit({
   message: { error: 'Trop de requêtes — réessayez dans quelques minutes.' }
 }));
 
-// Stricter limit on auth endpoints — 20 req / 15 min per IP
+// Strict limit on login — 10 attempts / 15 min per IP (brute force protection)
+app.use('/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' }
+}));
+
+// Stricter limit on Google OAuth — 20 req / 15 min per IP
 app.use('/auth/google', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,

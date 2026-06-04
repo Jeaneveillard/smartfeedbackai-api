@@ -86,22 +86,27 @@ router.post('/login', async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ error: 'Email et mot de passe requis.' });
   }
+  if (typeof email !== 'string' || email.length > 254) {
+    return res.status(400).json({ error: 'Identifiants incorrects.' });
+  }
+  if (typeof password !== 'string' || password.length > 128) {
+    return res.status(400).json({ error: 'Identifiants incorrects.' });
+  }
 
   // Accept email OR username
   const input = email.toLowerCase().trim();
   let tenant = await db('tenants').where({ email: input }).first();
   if (!tenant) tenant = await db('tenants').where({ username: email.trim() }).first();
 
-  if (!tenant || !tenant.password_hash) {
+  // Always run bcrypt to prevent timing attacks that reveal whether an email exists
+  const hashToCheck = (tenant && tenant.password_hash) || '$2a$10$invalidhashpaddingtopreventimenumerrtiming00000000000000';
+  const valid = await bcrypt.compare(password, hashToCheck);
+
+  if (!tenant || !tenant.password_hash || !valid) {
     return res.status(401).json({ error: 'Identifiants incorrects.' });
   }
   if (!tenant.active) {
     return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
-  }
-
-  const valid = await bcrypt.compare(password, tenant.password_hash);
-  if (!valid) {
-    return res.status(401).json({ error: 'Identifiants incorrects.' });
   }
 
   const token = jwt.sign({
