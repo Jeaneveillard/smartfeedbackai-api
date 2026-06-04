@@ -227,6 +227,20 @@ router.patch('/tenants/:id', requireAdmin, async (req, res) => {
   res.json(updated);
 });
 
+/* ─── POST /admin/tenants/:id/preview ─── get a short-lived JWT to view as client ─── */
+router.post('/tenants/:id/preview', requireAdmin, async (req, res) => {
+  const tenant = await db('tenants').where({ id: req.params.id, is_admin: false }).first();
+  if (!tenant) return res.status(404).json({ error: 'Client introuvable' });
+  // Sign a 2-hour JWT for this tenant — flagged as a preview session
+  const token = jwt.sign({
+    tenantId:  tenant.id,
+    email:     tenant.email,
+    isAdmin:   false,
+    isPreview: true
+  });
+  res.json({ token, name: tenant.name, username: tenant.username });
+});
+
 /* ─── DELETE /admin/tenants/:id ─── permanently delete ───────────────────── */
 router.delete('/tenants/:id', requireAdmin, async (req, res) => {
   await db('tenants').where({ id: req.params.id }).del();
