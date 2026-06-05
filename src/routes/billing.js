@@ -87,17 +87,18 @@ router.post('/webhook', async (req, res) => {
   const stripe = getStripe();
   const sig    = req.headers['stripe-signature'];
 
-  if (!WEBHOOK_SECRET) {
-    console.warn('[billing] STRIPE_WEBHOOK_SECRET not set — skipping signature check');
-    return res.json({ received: true });
-  }
-
   let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, WEBHOOK_SECRET);
-  } catch (err) {
-    console.error('[billing] webhook signature error:', err.message);
-    return res.status(400).json({ error: 'Webhook signature invalide.' });
+  if (WEBHOOK_SECRET) {
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, WEBHOOK_SECRET);
+    } catch (err) {
+      console.error('[billing] webhook signature error:', err.message);
+      return res.status(400).json({ error: 'Webhook signature invalide.' });
+    }
+  } else {
+    // No webhook secret configured — parse body directly (dev/test only)
+    console.warn('[billing] STRIPE_WEBHOOK_SECRET not set — processing without signature check');
+    try { event = JSON.parse(req.body); } catch (e) { return res.status(400).json({ error: 'Invalid JSON' }); }
   }
 
   try {
