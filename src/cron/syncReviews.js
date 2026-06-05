@@ -50,8 +50,6 @@ async function checkSubscriptions() {
 }
 
 async function sendExpiryEmail(tenant, type) {
-  const transporter = emailService.getTransporter ? emailService.getTransporter() : null;
-  if (!transporter) return;
 
   const bizName = (tenant.settings && tenant.settings.business && tenant.settings.business.name)
     ? tenant.settings.business.name : tenant.name;
@@ -87,7 +85,7 @@ async function sendExpiryEmail(tenant, type) {
     </table></body></html>`;
 
   try {
-    await transporter.sendMail({
+    await emailService.sendMail({
       from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
       to:      tenant.email,
       subject: subject,

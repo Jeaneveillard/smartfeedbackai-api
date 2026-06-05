@@ -1,24 +1,47 @@
 'use strict';
 const nodemailer = require('nodemailer');
+const { Resend }  = require('resend');
 require('dotenv').config({ path: require('path').join(__dirname, '../../../.env') });
 
-/* ─── Transporter (lazy-initialized) ──────────────────────────────────── */
-let _transporter = null;
+/* ─── Detect provider ──────────────────────────────────────────────────── */
+function isResend() {
+  return process.env.SMTP_PASS && process.env.SMTP_PASS.startsWith('re_');
+}
 
+/* ─── Resend client (lazy) ─────────────────────────────────────────────── */
+let _resend = null;
+function getResend() {
+  if (_resend) return _resend;
+  _resend = new Resend(process.env.SMTP_PASS);
+  return _resend;
+}
+
+/* ─── Nodemailer transporter (lazy) ────────────────────────────────────── */
+let _transporter = null;
 function getTransporter() {
+  if (isResend()) return { _isResend: true };  // signal to callers
   if (_transporter) return _transporter;
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
 
   _transporter = nodemailer.createTransport({
-    host:   process.env.SMTP_HOST   || 'smtp.gmail.com',
+    host:   process.env.SMTP_HOST || 'smtp.gmail.com',
     port:   parseInt(process.env.SMTP_PORT || '587', 10),
     secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
+    auth:   { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
   });
   return _transporter;
+}
+
+/* ─── Unified send ─────────────────────────────────────────────────────── */
+async function sendMail({ from, to, subject, html }) {
+  if (isResend()) {
+    const { error } = await getResend().emails.send({ from, to, subject, html });
+    if (error) throw new Error(error.message || JSON.stringify(error));
+  } else {
+    const t = getTransporter();
+    if (!t) throw new Error('SMTP not configured');
+    await t.sendMail({ from, to, subject, html });
+  }
 }
 
 /* ─── Star rating as text ──────────────────────────────────────────────── */
@@ -119,9 +142,8 @@ function buildHtml(bizName, reviews) {
 /* ─── Send notification for new reviews ───────────────────────────────── */
 async function sendNewReviewsNotification(tenant, newReviews) {
   if (!newReviews || newReviews.length === 0) return;
-  var transporter = getTransporter();
-  if (!transporter) {
-    console.log('[email] SMTP not configured — skipping notification for', tenant.email);
+  if (!isResend() && !getTransporter()) {
+    console.log('[email] Not configured — skipping notification for', tenant.email);
     return;
   }
 
@@ -134,7 +156,7 @@ async function sendNewReviewsNotification(tenant, newReviews) {
     : '⭐ ' + newReviews.length + ' nouveaux avis Google pour ' + bizName;
 
   try {
-    await transporter.sendMail({
+    await sendMail({
       from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
       to:      tenant.email,
       subject: subject,
@@ -148,14 +170,23 @@ async function sendNewReviewsNotification(tenant, newReviews) {
 
 /* ─── Test email connection ────────────────────────────────────────────── */
 async function testConnection() {
-  var transporter = getTransporter();
-  if (!transporter) return { ok: false, reason: 'SMTP not configured' };
+  if (!isResend() && !getTransporter()) return { ok: false, reason: 'Email not configured' };
   try {
-    await transporter.verify();
+    if (isResend()) {
+      // Resend: verify by sending to a known address
+      await sendMail({
+        from:    process.env.SMTP_FROM || 'SmartFeedback AI <onboarding@resend.dev>',
+        to:      'delivered@resend.dev',
+        subject: 'Test',
+        html:    '<p>Test</p>'
+      });
+    } else {
+      await getTransporter().verify();
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, reason: err.message };
   }
 }
 
-module.exports = { sendNewReviewsNotification, testConnection, getTransporter };
+module.exports = { sendNewReviewsNotification, testConnection, getTransporter, sendMail };

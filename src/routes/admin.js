@@ -26,8 +26,6 @@ function requireAdmin(req, res, next) {
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 async function sendInviteEmail(email, name, username, inviteUrl, expires) {
-  const transporter = emailService.getTransporter();
-  if (!transporter) throw new Error('SMTP not configured');
 
   const expiresStr = new Date(expires).toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -84,7 +82,7 @@ async function sendInviteEmail(email, name, username, inviteUrl, expires) {
     '</table></body></html>'
   ].join('\n');
 
-  await transporter.sendMail({
+  await emailService.sendMail({
     from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
     to:      email,
     subject: '🎉 Votre accès SmartFeedback AI — ' + name,
@@ -300,20 +298,17 @@ router.post('/tenants/:id/reset-password', requireAdmin, async (req, res) => {
   // Try to send the new password by email
   var emailSent = false;
   try {
-    const transporter = emailService.getTransporter();
-    if (transporter) {
-      await transporter.sendMail({
-        from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
-        to:      tenant.email,
-        subject: '🔑 Votre nouveau mot de passe SmartFeedback AI',
-        html:    '<p>Bonjour ' + tenant.name + ',</p>' +
-                 '<p>Votre mot de passe a été réinitialisé.</p>' +
-                 '<p><strong>Nouveau mot de passe :</strong> <code>' + plainPassword + '</code></p>' +
-                 '<p>Connectez-vous sur <a href="' + (process.env.FRONTEND_URL || 'http://localhost:3000') + '">' +
-                 (process.env.FRONTEND_URL || 'http://localhost:3000') + '</a> et changez votre mot de passe.</p>'
-      });
-      emailSent = true;
-    }
+    await emailService.sendMail({
+      from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
+      to:      tenant.email,
+      subject: '🔑 Votre nouveau mot de passe SmartFeedback AI',
+      html:    '<p>Bonjour ' + tenant.name + ',</p>' +
+               '<p>Votre mot de passe a été réinitialisé.</p>' +
+               '<p><strong>Nouveau mot de passe :</strong> <code>' + plainPassword + '</code></p>' +
+               '<p>Connectez-vous sur <a href="' + (process.env.FRONTEND_URL || 'http://localhost:3000') + '">' +
+               (process.env.FRONTEND_URL || 'http://localhost:3000') + '</a> et changez votre mot de passe.</p>'
+    });
+    emailSent = true;
   } catch (err) {
     console.error('[reset-password] email error:', err.message);
   }

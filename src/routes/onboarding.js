@@ -59,9 +59,8 @@ router.post('/', async (req, res) => {
     });
 
     // Notify admin by email (non-blocking)
-    const transporter = emailService.getTransporter();
-    if (transporter) {
-      const safeSubject = business_name.replace(/[\r\n\0]+/g, ' ');
+    const safeSubject = business_name.replace(/[\r\n\0]+/g, ' ');
+    if (true) {
       const html = [
         '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>',
         '<body style="font-family:Inter,-apple-system,sans-serif;background:#F4F5F9;margin:0;padding:32px;">',
@@ -87,7 +86,7 @@ router.post('/', async (req, res) => {
         '</div></body></html>'
       ].join('');
 
-      transporter.sendMail({
+      emailService.sendMail({
         from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
         to:      ADMIN_EMAIL,
         subject: '[SmartFeedback AI] Nouvelle demande — ' + safeSubject,
