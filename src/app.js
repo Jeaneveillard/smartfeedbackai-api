@@ -51,6 +51,7 @@ app.use('/api/settings',  require('./middleware/requireAuth'), require('./routes
 app.use('/api/analytics', require('./middleware/requireAuth'), require('./routes/analytics'));
 app.use('/api/email',     require('./middleware/requireAuth'), require('./routes/email'));
 app.use('/admin',         require('./routes/admin').router);
+app.use('/api/onboarding-requests',  require('./routes/onboarding'));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
