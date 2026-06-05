@@ -35,6 +35,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Format email invalide.' });
     }
 
+    if (website && !/^https?:\/\//i.test(website)) {
+      return res.status(400).json({ error: 'Format URL site web invalide (doit commencer par http:// ou https://).' });
+    }
+
     const existing = await db('onboarding_requests')
       .where({ email, status: 'pending' })
       .first();
@@ -57,7 +61,7 @@ router.post('/', async (req, res) => {
     // Notify admin by email (non-blocking)
     const transporter = emailService.getTransporter();
     if (transporter) {
-      const safeSubject = business_name.replace(/[\r\n]+/g, ' ');
+      const safeSubject = business_name.replace(/[\r\n\0]+/g, ' ');
       const html = [
         '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>',
         '<body style="font-family:Inter,-apple-system,sans-serif;background:#F4F5F9;margin:0;padding:32px;">',
