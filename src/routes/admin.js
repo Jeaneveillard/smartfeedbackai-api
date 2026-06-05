@@ -6,11 +6,30 @@ const db           = require('../db');
 const jwt          = require('../auth/jwt');
 const emailService = require('../services/emailService');
 
+/* ─── HTML escaping for email templates (prevents injection) ─────────────── */
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ─── Timing-safe string comparison ──────────────────────────────────────── */
+function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 /* ─── Admin middleware ───────────────────────────────────────────────────── */
 function requireAdmin(req, res, next) {
   // Option 1 : header secret pour scripts/CLI
   const secret = req.headers['x-admin-secret'];
-  if (secret && secret === process.env.ADMIN_SECRET) return next();
+  if (secret && process.env.ADMIN_SECRET && safeEqual(secret, process.env.ADMIN_SECRET)) return next();
 
   // Option 2 : JWT d'un tenant admin
   const auth = req.headers.authorization || '';
@@ -47,13 +66,13 @@ async function sendInviteEmail(email, name, username, inviteUrl, expires) {
     '      </td></tr>',
     // Body
     '      <tr><td style="padding:32px;">',
-    '        <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;">Bienvenue, ' + name + ' !</h1>',
+    '        <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;">Bienvenue, ' + escHtml(name) + ' !</h1>',
     '        <p style="margin:0 0 20px;font-size:14px;color:#6B7280;line-height:1.6;">',
     '          Votre compte SmartFeedback AI a été créé. Cliquez le bouton ci-dessous pour choisir votre mot de passe et accéder à votre tableau de bord.',
     '        </p>',
     '        <div style="background:#F9FAFB;border-radius:8px;padding:14px 16px;margin-bottom:24px;">',
     '          <div style="font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Votre identifiant</div>',
-    '          <div style="font-size:16px;font-weight:700;color:#4F46E5;">@' + username + '</div>',
+    '          <div style="font-size:16px;font-weight:700;color:#4F46E5;">@' + escHtml(username) + '</div>',
     '        </div>',
     '        <a href="' + inviteUrl + '"',
     '           style="display:block;text-align:center;background:#4F46E5;color:#fff;font-size:15px;font-weight:700;',
@@ -302,9 +321,9 @@ router.post('/tenants/:id/reset-password', requireAdmin, async (req, res) => {
       from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
       to:      tenant.email,
       subject: '🔑 Votre nouveau mot de passe SmartFeedback AI',
-      html:    '<p>Bonjour ' + tenant.name + ',</p>' +
+      html:    '<p>Bonjour ' + escHtml(tenant.name) + ',</p>' +
                '<p>Votre mot de passe a été réinitialisé.</p>' +
-               '<p><strong>Nouveau mot de passe :</strong> <code>' + plainPassword + '</code></p>' +
+               '<p><strong>Nouveau mot de passe :</strong> <code>' + escHtml(plainPassword) + '</code></p>' +
                '<p>Connectez-vous sur <a href="' + (process.env.FRONTEND_URL || 'http://localhost:3000') + '">' +
                (process.env.FRONTEND_URL || 'http://localhost:3000') + '</a> et changez votre mot de passe.</p>'
     });

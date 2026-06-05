@@ -8,6 +8,10 @@ require('./auth/googleOAuth');
 
 const app = express();
 
+// Render/Cloudflare run behind a proxy — trust the first hop so express-rate-limit
+// can read the real client IP from X-Forwarded-For (fixes ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
+app.set('trust proxy', 1);
+
 app.use(helmet());
 const ALLOWED_ORIGINS = [
   process.env.FRONTEND_URL,
