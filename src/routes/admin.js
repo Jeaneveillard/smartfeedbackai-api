@@ -115,10 +115,12 @@ router.get('/tenants', requireAdmin, async (_req, res) => {
     if (ids.length) {
       counts = await db('reviews')
         .whereIn('tenant_id', ids)
-        .select('tenant_id')
-        .count('id as total')
-        .countDistinct(db.raw('CASE WHEN status IN (\'pending\',\'new\') THEN id END as pending'))
-        .groupBy('tenant_id');
+        .groupBy('tenant_id')
+        .select(
+          'tenant_id',
+          db.raw('COUNT(*) as total'),
+          db.raw("COUNT(CASE WHEN status IN ('pending','new') THEN 1 END) as pending")
+        );
     }
     const countMap = {};
     counts.forEach(function(c) {
