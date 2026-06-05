@@ -43,13 +43,18 @@ router.post('/checkout', requireAuth, async (req, res) => {
       await db('tenants').where({ id: tenant.id }).update({ stripe_customer_id: customerId });
     }
 
+    const baseUrl = (FRONTEND_URL && FRONTEND_URL.startsWith('https://'))
+      ? FRONTEND_URL.replace(/\/$/, '')
+      : 'https://smartfeedbackai.jeaneveillard.workers.dev';
+
     const session = await stripe.checkout.sessions.create({
       customer:    customerId,
       mode:        'subscription',
       line_items:  [{ price: PRICE_ID, quantity: 1 }],
-      success_url: FRONTEND_URL + '/?checkout=success',
-      cancel_url:  FRONTEND_URL + '/?checkout=cancel',
+      success_url: baseUrl + '/?checkout=success',
+      cancel_url:  baseUrl + '/?checkout=cancel',
     });
+    console.log('[billing] checkout session created, success_url:', baseUrl + '/?checkout=success');
 
     res.json({ url: session.url });
   } catch (err) {
