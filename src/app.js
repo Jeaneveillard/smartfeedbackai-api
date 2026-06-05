@@ -9,8 +9,18 @@ require('./auth/googleOAuth');
 const app = express();
 
 app.use(helmet());
-const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'http://localhost:3000';
-app.use(cors({ origin: ALLOWED_ORIGIN, credentials: true }));
+const ALLOWED_ORIGINS = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'http://localhost:3001'
+].filter(Boolean);
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.indexOf(origin) !== -1) return callback(null, true);
+    callback(new Error('CORS: origin not allowed'));
+  },
+  credentials: true
+}));
 // Stripe webhook needs raw body — must be mounted BEFORE express.json()
 app.use('/api/billing/webhook', express.raw({ type: 'application/json' }), require('./routes/billing'));
 
