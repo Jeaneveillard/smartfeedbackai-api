@@ -317,80 +317,98 @@ router.get('/onboarding-requests', requireAdmin, async (_req, res) => {
 
 /* ─── POST /admin/onboarding-requests/:id/approve ───────────────────────── */
 router.post('/onboarding-requests/:id/approve', requireAdmin, async (req, res) => {
-  const { username, plan = 'beta' } = req.body;
-
-  const request = await db('onboarding_requests').where({ id: req.params.id }).first();
-  if (!request) return res.status(404).json({ error: 'Demande introuvable.' });
-  if (request.status !== 'pending') return res.status(409).json({ error: 'Demande déjà traitée.' });
-
-  if (!username) return res.status(400).json({ error: 'username requis.' });
-
-  const existingEmail = await db('tenants').where({ email: request.email }).first();
-  if (existingEmail) return res.status(409).json({ error: 'Un compte existe déjà pour cet email.' });
-
-  const existingUser = await db('tenants').where({ username }).first();
-  if (existingUser) return res.status(409).json({ error: 'Ce username est déjà pris.' });
-
-  const inviteToken   = require('crypto').randomBytes(32).toString('hex');
-  const inviteExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const frontendUrl   = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-  const [tenant] = await db('tenants').insert({
-    name:              request.business_name,
-    email:             request.email,
-    username,
-    plan,
-    sector:            request.sector,
-    phone:             request.phone,
-    address:           request.address,
-    city:              request.city,
-    website:           request.website,
-    active:            false,
-    invite_token:      inviteToken,
-    invite_expires_at: inviteExpires
-  }).returning(['id', 'name', 'username', 'email', 'plan', 'active', 'created_at']);
-
-  await db('onboarding_requests').where({ id: req.params.id }).update({ status: 'approved' });
-
-  const inviteUrl = frontendUrl + '?invite=' + inviteToken;
-
-  let emailSent = false;
-  let emailError = null;
   try {
-    await sendInviteEmail(request.email, request.business_name, username, inviteUrl, inviteExpires);
-    emailSent = true;
-  } catch (err) {
-    emailError = err.message;
-    console.error('[admin] Failed to send invite email:', err.message);
-  }
+    const { username, plan = 'beta' } = req.body;
 
-  res.status(201).json({
-    tenant,
-    invite: {
-      url:        inviteUrl,
-      token:      inviteToken,
-      expires:    inviteExpires,
-      emailSent,
-      emailError: emailError || undefined,
-      note:       emailSent
-        ? 'Email d\'invitation envoyé à ' + request.email + '. Lien valide 7 jours.'
-        : 'Email non envoyé (SMTP). Partagez le lien manuellement.'
+    const request = await db('onboarding_requests').where({ id: req.params.id }).first();
+    if (!request) return res.status(404).json({ error: 'Demande introuvable.' });
+    if (request.status !== 'pending') return res.status(409).json({ error: 'Demande déjà traitée.' });
+
+    if (!username) return res.status(400).json({ error: 'username requis.' });
+
+    const existingEmail = await db('tenants').where({ email: request.email }).first();
+    if (existingEmail) return res.status(409).json({ error: 'Un compte existe déjà pour cet email.' });
+
+    const existingUser = await db('tenants').where({ username }).first();
+    if (existingUser) return res.status(409).json({ error: 'Ce username est déjà pris.' });
+
+    const inviteToken   = crypto.randomBytes(32).toString('hex');
+    const inviteExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const frontendUrl   = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    let tenant;
+    await db.transaction(async (trx) => {
+      const [inserted] = await trx('tenants').insert({
+        name:              request.business_name,
+        email:             request.email,
+        username,
+        plan,
+        sector:            request.sector,
+        phone:             request.phone,
+        address:           request.address,
+        city:              request.city,
+        website:           request.website,
+        active:            false,
+        invite_token:      inviteToken,
+        invite_expires_at: inviteExpires
+      }).returning(['id', 'name', 'username', 'email', 'plan', 'active', 'created_at']);
+      tenant = inserted;
+      await trx('onboarding_requests').where({ id: req.params.id }).update({ status: 'approved' });
+    });
+
+    const inviteUrl = frontendUrl + '?invite=' + inviteToken;
+
+    let emailSent = false;
+    let emailError = null;
+    try {
+      await sendInviteEmail(request.email, request.business_name, username, inviteUrl, inviteExpires);
+      emailSent = true;
+    } catch (err) {
+      emailError = err.message;
+      console.error('[admin] Failed to send invite email:', err.message);
     }
-  });
+
+    res.status(201).json({
+      tenant,
+      invite: {
+        url:        inviteUrl,
+        token:      inviteToken,
+        expires:    inviteExpires,
+        emailSent,
+        emailError: emailError || undefined,
+        note:       emailSent
+          ? 'Email d\'invitation envoyé à ' + request.email + '. Lien valide 7 jours.'
+          : 'Email non envoyé (SMTP). Partagez le lien manuellement.'
+      }
+    });
+  } catch (err) {
+    console.error('[admin] approve onboarding request error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /* ─── POST /admin/onboarding-requests/:id/reject ────────────────────────── */
 router.post('/onboarding-requests/:id/reject', requireAdmin, async (req, res) => {
-  const { notes } = req.body;
-  const request = await db('onboarding_requests').where({ id: req.params.id }).first();
-  if (!request) return res.status(404).json({ error: 'Demande introuvable.' });
-  if (request.status !== 'pending') return res.status(409).json({ error: 'Demande déjà traitée.' });
+  try {
+    const { notes } = req.body;
 
-  await db('onboarding_requests')
-    .where({ id: req.params.id })
-    .update({ status: 'rejected', notes: notes || null });
+    if (notes && notes.length > 1000) {
+      return res.status(400).json({ error: 'Notes trop longues (max 1000 caractères).' });
+    }
 
-  res.json({ message: 'Demande rejetée.' });
+    const request = await db('onboarding_requests').where({ id: req.params.id }).first();
+    if (!request) return res.status(404).json({ error: 'Demande introuvable.' });
+    if (request.status !== 'pending') return res.status(409).json({ error: 'Demande déjà traitée.' });
+
+    await db('onboarding_requests')
+      .where({ id: req.params.id })
+      .update({ status: 'rejected', notes: notes || null });
+
+    res.json({ message: 'Demande rejetée.' });
+  } catch (err) {
+    console.error('[admin] reject onboarding request error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = { router, requireAdmin };
