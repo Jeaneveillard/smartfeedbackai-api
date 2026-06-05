@@ -11,6 +11,8 @@ const app = express();
 app.use(helmet());
 const ALLOWED_ORIGINS = [
   process.env.FRONTEND_URL,
+  'https://smartfeedbackai.jeaneveillard.workers.dev', // Cloudflare Workers (production)
+  'https://splendid-peony-c3e6ce.netlify.app',         // Netlify (legacy)
   'http://localhost:3000',
   'http://localhost:3001'
 ].filter(Boolean);
