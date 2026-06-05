@@ -9,7 +9,8 @@ require('./auth/googleOAuth');
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: true, credentials: true }));
+const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'http://localhost:3000';
+app.use(cors({ origin: ALLOWED_ORIGIN, credentials: true }));
 app.use(express.json());
 app.use(passport.initialize());
 
