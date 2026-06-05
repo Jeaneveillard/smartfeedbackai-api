@@ -1,5 +1,5 @@
 exports.up = function(knex) {
-  return knex.schema.table('tenants', t => {
+  return knex.schema.alterTable('tenants', t => {
     t.string('sector', 100);
     t.string('phone', 50);
     t.string('address', 300);
@@ -9,7 +9,7 @@ exports.up = function(knex) {
 };
 
 exports.down = function(knex) {
-  return knex.schema.table('tenants', t => {
+  return knex.schema.alterTable('tenants', t => {
     t.dropColumn('sector');
     t.dropColumn('phone');
     t.dropColumn('address');

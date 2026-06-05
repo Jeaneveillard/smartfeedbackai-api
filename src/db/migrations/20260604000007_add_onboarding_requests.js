@@ -11,7 +11,8 @@ exports.up = function(knex) {
     t.string('website', 300);
     t.string('status', 20).notNullable().defaultTo('pending');
     t.text('notes');
-    t.timestamp('created_at').defaultTo(knex.fn.now());
+    t.timestamp('created_at').defaultTo(knex.fn.now()).notNullable();
+    t.timestamp('updated_at').defaultTo(knex.fn.now()).notNullable();
   });
 };
 
