@@ -11,7 +11,7 @@ function getStripe() {
 
 const PRICE_ID       = process.env.STRIPE_PRICE_ID;
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-const FRONTEND_URL   = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL   = process.env.FRONTEND_URL || 'https://smartfeedbackai.jeaneveillard.workers.dev';
 
 /* ─── GET /api/billing/status ────────────────────────────────────────────── */
 router.get('/status', requireAuth, async (req, res) => {
