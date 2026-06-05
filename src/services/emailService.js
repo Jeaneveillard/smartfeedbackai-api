@@ -44,6 +44,16 @@ async function sendMail({ from, to, subject, html }) {
   }
 }
 
+/* ─── HTML escaping (review author/text are user-generated content) ──────── */
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /* ─── Star rating as text ──────────────────────────────────────────────── */
 function stars(n) {
   return '★'.repeat(Math.max(0, Math.min(5, n))) + '☆'.repeat(5 - Math.max(0, Math.min(5, n)));
@@ -53,23 +63,25 @@ function stars(n) {
 function buildHtml(bizName, reviews) {
   var reviewRows = reviews.map(function(r) {
     var preview = r.text ? r.text.substring(0, 120) + (r.text.length > 120 ? '…' : '') : '';
+    var initials = r.author_initials || (r.author || '').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
+    var color = /^[#a-zA-Z0-9(),.%\s-]+$/.test(r.color || '') ? (r.color || '#818CF8') : '#818CF8';
     return [
       '<tr style="border-bottom:1px solid #E5E7EB;">',
       '  <td style="padding:12px 8px;vertical-align:top;width:40px;">',
-      '    <div style="width:36px;height:36px;border-radius:50%;background:' + (r.color || '#818CF8') + ';',
+      '    <div style="width:36px;height:36px;border-radius:50%;background:' + color + ';',
       '         display:flex;align-items:center;justify-content:center;',
       '         font-size:12px;font-weight:700;color:#fff;text-align:center;line-height:36px;">',
-      '      ' + (r.author_initials || r.author.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()),
+      '      ' + escHtml(initials),
       '    </div>',
       '  </td>',
       '  <td style="padding:12px 8px;vertical-align:top;">',
-      '    <div style="font-weight:600;font-size:14px;color:#111827;">' + r.author + '</div>',
+      '    <div style="font-weight:600;font-size:14px;color:#111827;">' + escHtml(r.author) + '</div>',
       '    <div style="color:#F59E0B;font-size:13px;margin:2px 0;">' + stars(r.rating) + '</div>',
-      '    <div style="font-size:13px;color:#6B7280;line-height:1.5;">' + preview + '</div>',
+      '    <div style="font-size:13px;color:#6B7280;line-height:1.5;">' + escHtml(preview) + '</div>',
       '  </td>',
       '  <td style="padding:12px 8px;vertical-align:top;text-align:right;white-space:nowrap;">',
       '    <span style="background:#EEF2FF;color:#4338CA;font-size:11px;font-weight:700;',
-      '          padding:2px 8px;border-radius:20px;text-transform:uppercase;">' + (r.source || 'google') + '</span>',
+      '          padding:2px 8px;border-radius:20px;text-transform:uppercase;">' + escHtml(r.source || 'google') + '</span>',
       '  </td>',
       '</tr>'
     ].join('');
@@ -101,7 +113,7 @@ function buildHtml(bizName, reviews) {
     '          ' + reviews.length + ' nouvel' + (reviews.length > 1 ? 's' : '') + ' avis',
     '        </h1>',
     '        <p style="margin:0 0 24px;font-size:14px;color:#6B7280;">',
-    '          <strong style="color:#374151;">' + bizName + '</strong> a reçu ' +
+    '          <strong style="color:#374151;">' + escHtml(bizName) + '</strong> a reçu ' +
     (reviews.length > 1 ? reviews.length + ' nouveaux avis' : 'un nouvel avis') + ' sur Google.',
     '        </p>',
     '        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;">',
