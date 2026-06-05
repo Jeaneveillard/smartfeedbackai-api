@@ -51,6 +51,14 @@ app.use('/api/settings',  require('./middleware/requireAuth'), require('./routes
 app.use('/api/analytics', require('./middleware/requireAuth'), require('./routes/analytics'));
 app.use('/api/email',     require('./middleware/requireAuth'), require('./routes/email'));
 app.use('/admin',         require('./routes/admin').router);
+// Public onboarding form — strict limit to prevent spam/abuse
+app.use('/api/onboarding-requests', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de demandes. Réessayez dans 15 minutes.' }
+}));
 app.use('/api/onboarding-requests',  require('./routes/onboarding'));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
