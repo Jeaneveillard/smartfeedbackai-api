@@ -27,9 +27,9 @@ router.get('/google/callback',
 );
 
 router.get('/me', requireAuth, (req, res) => {
-  const { id, name, username, google_location_id, last_sync_at, is_admin } = req.tenant;
+  const { id, name, username, google_location_id, last_sync_at, is_admin, plan, subscription_end } = req.tenant;
   // NOTE: email is intentionally NOT returned to the frontend
-  res.json({ id, name, username: username || name, isAdmin: !!is_admin, googleConnected: !!req.tenant.google_access_token, google_location_id, last_sync_at });
+  res.json({ id, name, username: username || name, isAdmin: !!is_admin, googleConnected: !!req.tenant.google_access_token, google_location_id, last_sync_at, plan: plan || null, subscription_end: subscription_end || null });
 });
 
 router.delete('/logout', (_req, res) => res.json({ success: true }));
