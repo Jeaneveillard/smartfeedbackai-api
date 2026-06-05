@@ -200,6 +200,28 @@ router.put('/tenants/:id', requireAdmin, async (req, res) => {
   res.json(updated);
 });
 
+/* ─── POST /admin/subscriptions/:id/set ─── set exact days from today ─────── */
+router.post('/subscriptions/:id/set', requireAdmin, async (req, res) => {
+  const days = parseInt(req.body.days, 10);
+  if (!days || days < 1 || days > 3650) return res.status(400).json({ error: 'Valeur invalide (1–3650 jours).' });
+
+  const t = await db('tenants').where({ id: req.params.id }).first();
+  if (!t) return res.status(404).json({ error: 'Tenant introuvable' });
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const endDate  = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  await db('tenants').where({ id: req.params.id }).update({
+    subscription_start: todayStr,
+    subscription_end:   endDate,
+    warning_sent:       false,
+    active:             true
+  });
+  const updated = await db('tenants').where({ id: req.params.id })
+    .select('id','name','email','active','subscription_start','subscription_end').first();
+  res.json(updated);
+});
+
 /* ─── POST /admin/subscriptions/:id/extend ─── add days to subscription ─── */
 router.post('/subscriptions/:id/extend', requireAdmin, async (req, res) => {
   const days = parseInt(req.body.days, 10) || 30;
