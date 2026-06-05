@@ -82,8 +82,9 @@ router.get('/portal', requireAuth, async (req, res) => {
 });
 
 /* ─── POST /api/billing/webhook ──────────────────────────────────────────── */
-/* Note: this route must receive raw body — mounted before express.json() in app.js */
-router.post('/webhook', async (req, res) => {
+/* Exported separately — mounted WITHOUT requireAuth and BEFORE express.json() */
+const webhookRouter = express.Router();
+webhookRouter.post('/', async (req, res) => {
   const stripe = getStripe();
   const sig    = req.headers['stripe-signature'];
 
@@ -159,4 +160,4 @@ router.post('/webhook', async (req, res) => {
   res.json({ received: true });
 });
 
-module.exports = router;
+module.exports = { router, webhookRouter };

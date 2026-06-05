@@ -23,8 +23,9 @@ app.use(cors({
   },
   credentials: true
 }));
-// Stripe webhook needs raw body — must be mounted BEFORE express.json()
-app.use('/api/billing/webhook', express.raw({ type: 'application/json' }), require('./routes/billing'));
+// Stripe webhook — NO auth, raw body — must be BEFORE express.json()
+const billing = require('./routes/billing');
+app.use('/api/billing/webhook', express.raw({ type: 'application/json' }), billing.webhookRouter);
 
 app.use(express.json());
 app.use(passport.initialize());
@@ -67,7 +68,7 @@ app.use('/api/settings',  require('./middleware/requireAuth'), require('./routes
 app.use('/api/analytics', require('./middleware/requireAuth'), require('./routes/analytics'));
 app.use('/api/email',     require('./middleware/requireAuth'), require('./routes/email'));
 app.use('/admin',         require('./routes/admin').router);
-app.use('/api/billing',   require('./middleware/requireAuth'), require('./routes/billing'));
+app.use('/api/billing',   require('./middleware/requireAuth'), billing.router);
 // Public onboarding form — strict limit to prevent spam/abuse
 app.use('/api/onboarding-requests', rateLimit({
   windowMs: 15 * 60 * 1000,
