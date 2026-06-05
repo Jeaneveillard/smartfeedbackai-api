@@ -58,8 +58,8 @@ router.post('/checkout', requireAuth, async (req, res) => {
 
     res.json({ url: session.url });
   } catch (err) {
-    console.error('[billing] checkout error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('[billing] checkout error type:', err.type, '| param:', err.param, '| msg:', err.message);
+    res.status(500).json({ error: err.message, type: err.type, param: err.param });
   }
 });
 
