@@ -48,8 +48,8 @@ router.post('/checkout', requireAuth, async (req, res) => {
       mode:                 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: PRICE_ID, quantity: 1 }],
-      success_url: FRONTEND_URL + '/#/settings?checkout=success',
-      cancel_url:  FRONTEND_URL + '/#/settings?checkout=cancel',
+      success_url: FRONTEND_URL + '/?checkout=success#/settings',
+      cancel_url:  FRONTEND_URL + '/?checkout=cancel#/settings',
     });
 
     res.json({ url: session.url });
