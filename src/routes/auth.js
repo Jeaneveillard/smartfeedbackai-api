@@ -146,12 +146,24 @@ router.post('/invite/:token', async (req, res) => {
   }
 
   const hash = await bcrypt.hash(password, 10);
-  await db('tenants').where({ id: tenant.id }).update({
-    password_hash:      hash,
-    active:             true,
-    invite_token:       null,  // invalidate — one-time use
-    invite_expires_at:  null
-  });
+  const updates = {
+    password_hash:     hash,
+    active:            true,
+    invite_token:      null,
+    invite_expires_at: null
+  };
+
+  // Beta plan: auto-set subscription dates starting today
+  if (tenant.plan === 'beta') {
+    const adminTenant = await db('tenants').where({ is_admin: true }).first();
+    const betaDays    = (adminTenant && adminTenant.settings && adminTenant.settings.beta_days) || 7;
+    const todayStr    = new Date().toISOString().split('T')[0];
+    const endDate     = new Date(Date.now() + betaDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    updates.subscription_start = todayStr;
+    updates.subscription_end   = endDate;
+  }
+
+  await db('tenants').where({ id: tenant.id }).update(updates);
 
   // Auto-login: sign a JWT
   const token = jwt.sign({

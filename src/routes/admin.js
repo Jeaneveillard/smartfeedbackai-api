@@ -413,4 +413,37 @@ router.post('/onboarding-requests/:id/reject', requireAdmin, async (req, res) =>
   }
 });
 
+/* ─── GET /admin/config ─── read app-level config ─────────────────────────── */
+router.get('/config', requireAdmin, async (_req, res) => {
+  try {
+    const admin = await db('tenants').where({ is_admin: true }).first();
+    const cfg   = (admin && admin.settings) || {};
+    res.json({ beta_days: cfg.beta_days || 7 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ─── PATCH /admin/config ─── update app-level config ─────────────────────── */
+router.patch('/config', requireAdmin, async (req, res) => {
+  try {
+    const { beta_days } = req.body;
+    const days = parseInt(beta_days, 10);
+    if (!days || days < 1 || days > 365) {
+      return res.status(400).json({ error: 'beta_days doit être entre 1 et 365.' });
+    }
+    const admin = await db('tenants').where({ is_admin: true }).first();
+    if (!admin) return res.status(404).json({ error: 'Admin introuvable.' });
+
+    const current = admin.settings || {};
+    await db('tenants')
+      .where({ is_admin: true })
+      .update({ settings: JSON.stringify(Object.assign({}, current, { beta_days: days })) });
+
+    res.json({ beta_days: days });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = { router, requireAdmin };
