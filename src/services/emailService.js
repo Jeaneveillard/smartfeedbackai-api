@@ -7,10 +7,10 @@ let _transporter = null;
 
 function getTransporter() {
   if (_transporter) return _transporter;
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
 
   _transporter = nodemailer.createTransport({
-    host:   process.env.SMTP_HOST,
+    host:   process.env.SMTP_HOST   || 'smtp.gmail.com',
     port:   parseInt(process.env.SMTP_PORT || '587', 10),
     secure: process.env.SMTP_SECURE === 'true',
     auth: {
@@ -135,7 +135,7 @@ async function sendNewReviewsNotification(tenant, newReviews) {
 
   try {
     await transporter.sendMail({
-      from:    '"SmartFeedback AI" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+      from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
       to:      tenant.email,
       subject: subject,
       html:    buildHtml(bizName, newReviews)

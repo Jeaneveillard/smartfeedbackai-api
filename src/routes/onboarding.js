@@ -88,7 +88,7 @@ router.post('/', async (req, res) => {
       ].join('');
 
       transporter.sendMail({
-        from:    '"SmartFeedback AI" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+        from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
         to:      ADMIN_EMAIL,
         subject: '[SmartFeedback AI] Nouvelle demande — ' + safeSubject,
         html:    html

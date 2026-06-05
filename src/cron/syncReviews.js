@@ -88,7 +88,7 @@ async function sendExpiryEmail(tenant, type) {
 
   try {
     await transporter.sendMail({
-      from:    '"SmartFeedback AI" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+      from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
       to:      tenant.email,
       subject: subject,
       html:    html

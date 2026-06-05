@@ -85,7 +85,7 @@ async function sendInviteEmail(email, name, username, inviteUrl, expires) {
   ].join('\n');
 
   await transporter.sendMail({
-    from:    '"SmartFeedback AI" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+    from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
     to:      email,
     subject: '🎉 Votre accès SmartFeedback AI — ' + name,
     html:    html
@@ -279,7 +279,7 @@ router.post('/tenants/:id/reset-password', requireAdmin, async (req, res) => {
     const transporter = emailService.getTransporter();
     if (transporter) {
       await transporter.sendMail({
-        from:    '"SmartFeedback AI" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+        from:    process.env.SMTP_FROM || ('"SmartFeedback AI" <' + process.env.SMTP_USER + '>'),
         to:      tenant.email,
         subject: '🔑 Votre nouveau mot de passe SmartFeedback AI',
         html:    '<p>Bonjour ' + tenant.name + ',</p>' +
