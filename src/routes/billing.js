@@ -71,7 +71,7 @@ router.post('/checkout', requireAuth, async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     console.error('[billing] checkout error type:', err.type, '| param:', err.param, '| msg:', err.message);
-    res.status(500).json({ error: err.message, type: err.type, param: err.param });
+    res.status(500).json({ error: 'Impossible de créer la session de paiement. Réessayez plus tard.' });
   }
 });
 
@@ -109,10 +109,23 @@ webhookRouter.post('/', async (req, res) => {
       console.error('[billing] webhook signature error:', err.message);
       return res.status(400).json({ error: 'Webhook signature invalide.' });
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    // Refuse to process unsigned webhooks in production — without the secret
+    // anyone could POST a fake "active" subscription event.
+    console.error('[billing] STRIPE_WEBHOOK_SECRET missing in production — rejecting webhook');
+    return res.status(500).json({ error: 'Webhook non configuré.' });
   } else {
-    // No webhook secret configured — parse body directly (dev/test only)
-    console.warn('[billing] STRIPE_WEBHOOK_SECRET not set — processing without signature check');
+    console.warn('[billing] STRIPE_WEBHOOK_SECRET not set — processing without signature check (dev only)');
     try { event = JSON.parse(req.body); } catch (e) { return res.status(400).json({ error: 'Invalid JSON' }); }
+  }
+
+  // Idempotency: skip events we've already processed (Stripe delivers at-least-once).
+  try {
+    const seen = await db('processed_stripe_events').where({ event_id: event.id }).first();
+    if (seen) return res.json({ received: true, duplicate: true });
+  } catch (err) {
+    console.error('[billing] idempotency check failed:', err.message);
+    return res.status(500).json({ error: 'DB error' }); // let Stripe retry
   }
 
   try {
@@ -166,8 +179,15 @@ webhookRouter.post('/', async (req, res) => {
         break;
       }
     }
+
+    // Record success AFTER the handler so a failed write is retried by Stripe.
+    await db('processed_stripe_events')
+      .insert({ event_id: event.id, type: event.type })
+      .onConflict('event_id').ignore();
   } catch (err) {
     console.error('[billing] webhook handler error:', err.message);
+    // Return 500 so Stripe retries — pairs with the idempotency guard above.
+    return res.status(500).json({ error: 'Webhook processing failed' });
   }
 
   res.json({ received: true });

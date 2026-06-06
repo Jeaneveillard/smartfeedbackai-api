@@ -36,6 +36,9 @@ router.get('/', async (req, res) => {
 router.post('/:id/reply', async (req, res) => {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ error: 'text requis' });
+  if (typeof text !== 'string' || text.length > 4096) {
+    return res.status(400).json({ error: 'Réponse trop longue (max 4096 caractères).' });
+  }
 
   try {
     const review = await db('reviews').where({ id: req.params.id, tenant_id: req.tenant.id }).first();

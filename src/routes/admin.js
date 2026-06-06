@@ -16,6 +16,11 @@ function escHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// Usernames: 3-40 chars, letters/digits/._- only (used in login lookups + @display)
+function isValidUsername(u) {
+  return typeof u === 'string' && /^[a-zA-Z0-9_.-]{3,40}$/.test(u);
+}
+
 /* ─── Timing-safe string comparison ──────────────────────────────────────── */
 function safeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
@@ -156,6 +161,7 @@ router.get('/tenants', requireAdmin, async (_req, res) => {
 router.post('/tenants', requireAdmin, async (req, res) => {
   const { name, email, username, plan = 'beta' } = req.body;
   if (!name || !email || !username) return res.status(400).json({ error: 'name, email et username requis.' });
+  if (!isValidUsername(username)) return res.status(400).json({ error: 'Username invalide (3-40 caractères : lettres, chiffres, . _ -).' });
 
   const existing = await db('tenants').where({ email }).first();
   if (existing) return res.status(409).json({ error: 'Un compte existe déjà pour cet email.' });
@@ -363,6 +369,7 @@ router.post('/onboarding-requests/:id/approve', requireAdmin, async (req, res) =
     if (request.status !== 'pending') return res.status(409).json({ error: 'Demande déjà traitée.' });
 
     if (!username) return res.status(400).json({ error: 'username requis.' });
+    if (!isValidUsername(username)) return res.status(400).json({ error: 'Username invalide (3-40 caractères : lettres, chiffres, . _ -).' });
 
     const existingEmail = await db('tenants').where({ email: request.email }).first();
     if (existingEmail) return res.status(409).json({ error: 'Un compte existe déjà pour cet email.' });
