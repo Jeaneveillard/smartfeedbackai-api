@@ -18,7 +18,11 @@ module.exports = async function requireAuth(req, res, next) {
       if (tenant.active === false) {
         return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
       }
-      if (tenant.subscription_end) {
+      // Never block a paying Stripe customer — an active subscription
+      // overrides the beta/trial subscription_end date.
+      const hasActiveStripe = tenant.stripe_subscription_status === 'active'
+                           || tenant.stripe_subscription_status === 'trialing';
+      if (!hasActiveStripe && tenant.subscription_end) {
         const today = new Date().toISOString().split('T')[0];
         if (tenant.subscription_end < today) {
           return res.status(402).json({
