@@ -31,18 +31,26 @@ function safeEqual(a, b) {
 }
 
 /* ─── Admin middleware ───────────────────────────────────────────────────── */
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
   // Option 1 : header secret pour scripts/CLI
   const secret = req.headers['x-admin-secret'];
   if (secret && process.env.ADMIN_SECRET && safeEqual(secret, process.env.ADMIN_SECRET)) return next();
 
-  // Option 2 : JWT d'un tenant admin
+  // Option 2 : JWT d'un tenant admin — vérifie aussi session_version en DB
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (token) {
     try {
       const payload = jwt.verify(token);
-      if (payload.isAdmin) return next();
+      if (payload.isAdmin && payload.tenantId) {
+        const tenant = await db('tenants').where({ id: payload.tenantId }).select('is_admin', 'session_version').first();
+        if (tenant && tenant.is_admin) {
+          if (payload.sv !== undefined && payload.sv !== tenant.session_version) {
+            return res.status(401).json({ error: 'Session expirée. Veuillez vous reconnecter.', sessionExpired: true });
+          }
+          return next();
+        }
+      }
     } catch {}
   }
   return res.status(403).json({ error: 'Accès administrateur requis.' });
@@ -317,8 +325,10 @@ router.delete('/tenants/:id', requireAdmin, async (req, res) => {
 router.post('/tenants/:id/reset-password', requireAdmin, async (req, res) => {
   const plainPassword = generatePassword(12);
   const passwordHash  = await bcrypt.hash(plainPassword, 10);
-  await db('tenants').where({ id: req.params.id }).update({ password_hash: passwordHash });
-  await db('tenants').where({ id: req.params.id }).increment('session_version', 1);
+  await db.raw(
+    'UPDATE tenants SET password_hash = ?, session_version = session_version + 1 WHERE id = ?',
+    [passwordHash, req.params.id]
+  );
   const tenant = await db('tenants').where({ id: req.params.id }).select('email', 'username', 'name').first();
 
   // Try to send the new password by email
