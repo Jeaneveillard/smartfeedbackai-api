@@ -53,6 +53,11 @@ router.post('/checkout', requireAuth, async (req, res) => {
       line_items:  [{ price: PRICE_ID, quantity: 1 }],
       success_url: SUCCESS_URL,
       cancel_url:  CANCEL_URL,
+      // Stripe Tax adds GST/QST/HST automatically based on the client's address
+      automatic_tax:             { enabled: true },
+      billing_address_collection: 'required',
+      customer_update:           { address: 'auto', name: 'auto' },
+      tax_id_collection:         { enabled: true },
     });
 
     res.json({ url: session.url });
