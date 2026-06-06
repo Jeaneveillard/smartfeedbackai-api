@@ -318,6 +318,7 @@ router.post('/tenants/:id/reset-password', requireAdmin, async (req, res) => {
   const plainPassword = generatePassword(12);
   const passwordHash  = await bcrypt.hash(plainPassword, 10);
   await db('tenants').where({ id: req.params.id }).update({ password_hash: passwordHash });
+  await db('tenants').where({ id: req.params.id }).increment('session_version', 1);
   const tenant = await db('tenants').where({ id: req.params.id }).select('email', 'username', 'name').first();
 
   // Try to send the new password by email

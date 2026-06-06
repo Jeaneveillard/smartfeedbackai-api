@@ -8,6 +8,19 @@ if (missing.length) {
   process.exit(1);
 }
 
+const knexConfig = require('./db/knexfile');
+const knex       = require('knex')(knexConfig[process.env.NODE_ENV] || knexConfig.development);
+
+knex.migrate.latest()
+  .then(([, ran]) => {
+    if (ran.length) console.log('[migrate] applied:', ran.join(', '));
+    return knex.destroy();
+  })
+  .catch(err => {
+    console.error('[migrate] FAILED:', err.message);
+    process.exit(1);
+  });
+
 const app  = require('./app');
 const { startCron } = require('./cron/syncReviews');
 const port = process.env.PORT || 3001;

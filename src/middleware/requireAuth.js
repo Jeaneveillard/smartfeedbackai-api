@@ -15,6 +15,11 @@ module.exports = async function requireAuth(req, res, next) {
 
     // Preview sessions (admin viewing as client) bypass active + subscription checks
     if (!isPreview) {
+      // One active session at a time: invalidate if session version has changed
+      if (payload.sv !== undefined && payload.sv !== tenant.session_version) {
+        return res.status(401).json({ error: 'Session expirée. Veuillez vous reconnecter.', sessionExpired: true });
+      }
+
       if (tenant.active === false) {
         return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
       }

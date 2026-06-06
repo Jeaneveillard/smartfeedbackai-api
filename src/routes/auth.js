@@ -20,8 +20,10 @@ router.get('/google/callback',
     session: false,
     failureRedirect: (process.env.FRONTEND_URL || 'http://localhost:3000') + '/?error=auth_failed'
   }),
-  (req, res) => {
-    const token = jwt.sign({ tenantId: req.user.id, email: req.user.email, isAdmin: !!req.user.is_admin });
+  async (req, res) => {
+    await db('tenants').where({ id: req.user.id }).increment('session_version', 1);
+    const fresh = await db('tenants').where({ id: req.user.id }).select('session_version').first();
+    const token = jwt.sign({ tenantId: req.user.id, email: req.user.email, isAdmin: !!req.user.is_admin, sv: fresh.session_version });
     res.redirect((process.env.FRONTEND_URL || 'http://localhost:3000') + '/?token=' + token);
   }
 );
@@ -109,10 +111,13 @@ router.post('/login', async (req, res) => {
     return res.status(403).json({ error: 'Compte désactivé. Contactez votre administrateur.' });
   }
 
+  await db('tenants').where({ id: tenant.id }).increment('session_version', 1);
+  const fresh = await db('tenants').where({ id: tenant.id }).select('session_version').first();
   const token = jwt.sign({
     tenantId: tenant.id,
     email:    tenant.email,
-    isAdmin:  tenant.is_admin || false
+    isAdmin:  tenant.is_admin || false,
+    sv:       fresh.session_version
   });
   // Return username, not email — email stays server-side only
   res.json({ token, name: tenant.name, username: tenant.username || tenant.name });
@@ -165,11 +170,13 @@ router.post('/invite/:token', async (req, res) => {
 
   await db('tenants').where({ id: tenant.id }).update(updates);
 
-  // Auto-login: sign a JWT
+  // Auto-login after invite — include current session version
+  const afterInvite = await db('tenants').where({ id: tenant.id }).select('session_version').first();
   const token = jwt.sign({
     tenantId: tenant.id,
     email:    tenant.email,
-    isAdmin:  tenant.is_admin || false
+    isAdmin:  tenant.is_admin || false,
+    sv:       afterInvite.session_version
   });
   res.json({ token, name: tenant.name, username: tenant.username || tenant.name });
 });
