@@ -31,16 +31,25 @@ router.post('/checkout', requireAuth, async (req, res) => {
 
     if (!PRICE_ID) return res.status(500).json({ error: 'STRIPE_PRICE_ID non configuré.' });
 
+    // Localize Stripe invoices/emails to the client's language (FR-CA or EN).
+    const tenantLang = (tenant.settings && tenant.settings.ai && tenant.settings.ai.language) === 'en'
+      ? 'en' : 'fr-CA';
+
     // Create Stripe customer if needed
     let customerId = tenant.stripe_customer_id;
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: tenant.email,
-        name:  tenant.name,
-        metadata: { tenantId: String(tenant.id) }
+        email:             tenant.email,
+        name:              tenant.name,
+        preferred_locales: [tenantLang],
+        metadata:          { tenantId: String(tenant.id) }
       });
       customerId = customer.id;
       await db('tenants').where({ id: tenant.id }).update({ stripe_customer_id: customerId });
+    } else {
+      // Keep the locale in sync in case the client changed their language.
+      try { await stripe.customers.update(customerId, { preferred_locales: [tenantLang] }); }
+      catch (e) { console.error('[billing] locale update failed:', e.message); }
     }
 
     const SUCCESS_URL = 'https://smartfeedbackai.jeaneveillard.workers.dev/?checkout=success';
