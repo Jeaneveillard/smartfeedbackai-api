@@ -47,18 +47,26 @@ router.post('/checkout', requireAuth, async (req, res) => {
     const CANCEL_URL  = 'https://smartfeedbackai.jeaneveillard.workers.dev/?checkout=cancel';
     console.log('[billing] creating session, success_url:', SUCCESS_URL);
 
-    const session = await stripe.checkout.sessions.create({
+    // Stripe Tax adds GST/QST/HST automatically — only when enabled in the
+    // dashboard AND flagged on, so checkout never breaks if Tax isn't set up.
+    const taxEnabled = process.env.STRIPE_TAX_ENABLED === 'true';
+
+    const sessionParams = {
       customer:    customerId,
       mode:        'subscription',
       line_items:  [{ price: PRICE_ID, quantity: 1 }],
       success_url: SUCCESS_URL,
       cancel_url:  CANCEL_URL,
-      // Stripe Tax adds GST/QST/HST automatically based on the client's address
-      automatic_tax:             { enabled: true },
-      billing_address_collection: 'required',
-      customer_update:           { address: 'auto', name: 'auto' },
-      tax_id_collection:         { enabled: true },
-    });
+    };
+
+    if (taxEnabled) {
+      sessionParams.automatic_tax              = { enabled: true };
+      sessionParams.billing_address_collection = 'required';
+      sessionParams.customer_update            = { address: 'auto', name: 'auto' };
+      sessionParams.tax_id_collection          = { enabled: true };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     res.json({ url: session.url });
   } catch (err) {
