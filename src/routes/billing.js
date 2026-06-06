@@ -11,7 +11,7 @@ function getStripe() {
 
 const PRICE_ID       = process.env.STRIPE_PRICE_ID;
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-const FRONTEND_URL   = process.env.FRONTEND_URL || 'https://smartfeedbackai.jeaneveillard.workers.dev';
+const FRONTEND_URL   = process.env.FRONTEND_URL || 'https://smartfeedbackai.com';
 
 /* ─── GET /api/billing/status ────────────────────────────────────────────── */
 router.get('/status', requireAuth, async (req, res) => {
@@ -52,8 +52,8 @@ router.post('/checkout', requireAuth, async (req, res) => {
       catch (e) { console.error('[billing] locale update failed:', e.message); }
     }
 
-    const SUCCESS_URL = 'https://smartfeedbackai.jeaneveillard.workers.dev/?checkout=success';
-    const CANCEL_URL  = 'https://smartfeedbackai.jeaneveillard.workers.dev/?checkout=cancel';
+    const SUCCESS_URL = 'https://smartfeedbackai.com/?checkout=success';
+    const CANCEL_URL  = 'https://smartfeedbackai.com/?checkout=cancel';
     console.log('[billing] creating session, success_url:', SUCCESS_URL);
 
     // Stripe Tax adds GST/QST/HST automatically — only when enabled in the
