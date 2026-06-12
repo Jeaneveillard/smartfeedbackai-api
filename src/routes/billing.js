@@ -66,6 +66,9 @@ router.post('/checkout', requireAuth, async (req, res) => {
       line_items:  [{ price: PRICE_ID, quantity: 1 }],
       success_url: SUCCESS_URL,
       cancel_url:  CANCEL_URL,
+      // « Premier mois gratuit » promis sur la landing — carte requise,
+      // premier prélèvement après 30 jours.
+      subscription_data: { trial_period_days: 30 },
     };
 
     if (taxEnabled) {
